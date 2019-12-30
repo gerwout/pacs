@@ -254,10 +254,13 @@ You can setup multiple sites in SCCM. There are different ways to determine the 
 want to use. This documentation describes how to do this with the wmimgmt.msc mmc snap-in. You'll need
 to start this snap-in as a user that has permissions to query the SCCM server.
 ![SCCM WMIMGMT.msc MMC snapin](docs/sccm/wmimgmt-msc-01.png)  
+
 Go to Action -> Connect to other computer ...
 ![SCCM WMIMGMT.msc MMC snapin connect to other computer](docs/sccm/wmimgmt-msc-02.png)  
+
 Right click WMI control and select properties, click the security tab.
-![SCCM WMIMGMT.msc MMC snapin connect to other computer](docs/sccm/wmimgmt-msc-03.png)  
+![SCCM WMIMGMT.msc MMC snapin connect to other computer](docs/sccm/wmimgmt-msc-03.png)
+  
 You can find your site names under ROOT\SMS. In the above example the namespace needs to be
 configured as ROOT\SMS\site_NLD.
 
