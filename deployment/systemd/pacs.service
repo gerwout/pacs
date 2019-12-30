@@ -1,0 +1,19 @@
+[Unit]
+Description = Pritunl Access Control System
+After = network.target
+
+[Service]
+PIDFile = /run/pacs/pacs.pid
+User = pacs
+Group = pacs
+WorkingDirectory = /opt/pacs
+ExecStartPre=+/bin/mkdir -p /run/pacs
+ExecStartPre=+/bin/chown pacs:pacs /run/pacs
+ExecStart = /opt/venvs/pacs-venv/bin/gunicorn app:app -b 127.0.0.1:5000 --pid /run/pacs/pacs.pid
+ExecReload = /bin/kill -s HUP $MAINPID
+ExecStop = /bin/kill -s TERM $MAINPID
+ExecStopPost = /bin/rm -rf /run/pacs/pacs.pid
+PrivateTmp = true
+
+[Install]
+WantedBy = multi-user.target

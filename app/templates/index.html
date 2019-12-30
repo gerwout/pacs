@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PACS (Pritunl access control system)</title>
+    <link rel="shortcut icon" type="image/png" href="/images/favicon.png"/>
+    <link href="/css/font.css" rel="stylesheet">
+    <link href="/css/custom.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/materialize.min.css">
+    <script src="/js/jquery-3.4.1.min.js"></script>
+    <script src="/js/custom.js"></script>
+    {% if action == "edit" %}
+    <script language="javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            switch_add_to_edit();
+        });
+    </script>
+    {% endif %}
+</head>
+<body>
+        <div id="top">
+                <div id="top_buttons">
+                    <i class="waves-effect waves-light btn waves-input-wrapper"><input class="waves-button-input" id="pacs_status_button" type="submit" value="{% if pacs_enabled %}Disable{% else %}Enable{% endif %} PACS"></i>
+                    {% if show_sccm_button %}<i class="waves-effect waves-light btn waves-input-wrapper"><input class="waves-button-input" id="sccm_import_button" type="submit" value="SCCM Import"></i>{% endif %}
+                </div>
+            <div id="logon_details">{{ logon }} <a href="/logout">logout</a></div>
+        </div>
+        <div id="add_computer_form">
+            {% for error in errors %}
+                <div class="error">{{ error }}</div>
+            {% endfor %}
+            <form method="post" id="computer_form" action="/{{route}}">
+                <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token }}"/>
+                <input type="hidden" id="computer_id" name="id" value="{{ id }}"/>
+                <div class="input-field">
+                    {{ form.name() }}
+                    {{ form.name.label() }}
+                </div>
+                <div class="input-field">
+                    {{ form.description() }}
+                    {{ form.description.label() }}
+                </div>
+                <div class="input-field">
+                    <span>
+                          <label>
+                            <input id="ignore_av_check" name="ignore_av_check" type="checkbox"{% if ignore_av_check %} checked="checked" {% endif %}/>
+                            <span>Ignore anti virus status</span>
+                          </label>
+                    </span>
+                </div>
+                {% for mac_address in mac_addresses %}
+                <div class="input-field">
+                  <input class="upper mac_address" id="mac{{ loop.index }}" name="mac" value="{{ mac_address }}" type="text">
+                  <label for="mac{{ loop.index }}">MAC address</label>
+                </div>
+                  {% if loop.last %}
+                  <a id="add_mac_icon" title="add mac address"><i class="material-icons mdc-text-field__icon">add</i>Add additional mac address</a><br/>
+                  {% endif %}
+                {% endfor %}
+                <span id="span_add_button"><input disabled class="waves-effect waves-light btn" id="computer_form_submit" type="submit" value="Add" /></span>
+                <span id="computer_form_edit_span"><input class="waves-effect waves-light btn" type="submit" value="Update" /></span>
+                <span id="computer_form_switch_span"><input class="waves-effect waves-light btn" type="submit" value="Switch to add" /></span>
+            </form>
+            {% if pacs_enabled %}
+                <img src="/images/funny_pigeon.gif" title="PACS is enabled :-)"\>
+            {% endif %}
+        </div>
+        <div id="show_current_computers">
+            <table id="computer_table" class="highlight">
+                <tr><th class="th_order_by">Name</th><th class="th_order_by">Description</th><th class="th_order_by">Last logon</th><th class="ignore_av th_order_by">Ignore AV</th><th>Mac addresses</th><th class="th_order_by">Source</th><th>Actions</th></tr>
+                {% for computer in computers %}
+                    <tr>
+                        <td>{{ computer.name }}</td>
+                        <td>{{ computer.description }}</td>
+                        <td>{{ computer.last_logon_name }}</td>
+                        <td class="ignore_av">{{ computer.ignore_av_check }}</td>
+                        <td>{% for mac_address in computer.mac_addresses %}{{ mac_address }} {% endfor %}</td>
+                        <td>{{ computer.get_source() }}</td>
+                        <td><a class="delete_computer_icon" data-id="{{ computer.id }}"><i class="material-icons mdc-text-field__icon">delete</i></a></td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
+    <script src="/js/materialize.min.js"></script>
+    <input type="hidden" id="order_by" value="{{ order_by }}"/>
+    <input type="hidden" id="asc_or_desc" value="{{ asc_or_desc }}"/>
+</body>
+</html>

@@ -1,0 +1,5 @@
+[general]
+# Shared secret that is used for the API JWT signature
+API_SECRET_KEY=be7bb0617af4fac367b9764ed0fe0c91
+#  Complete url towards the PACS compliance check
+COMPLIANCE_URL=http://127.0.0.1:5000/check-compliance

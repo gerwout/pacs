@@ -1,0 +1,71 @@
+html, body {
+    height:100%;
+}
+
+body {
+    margin-left: 2px !important;
+    margin-right: 2px !important;
+    margin-bottom: 0px !important;
+    margin-top: 0px !important;
+    overflow: hidden;
+}
+
+#computer_table {
+    border: 1px solid black;
+}
+
+#top {
+    width: 100%;
+}
+
+#logon_details {
+    display: inline-block;
+    float: right;
+    padding-right: 8px;
+    font-weight: bold;
+}
+
+#add_computer_form {
+    width: 250px;
+    float: left;
+    border-width: 1px 0px 1px 1px;
+    border-color: black;
+    border-style: solid;
+    margin-top: 22px;
+    padding-left: 4px;
+    padding-bottom: 4px;
+}
+
+#computer_form_edit_span, #computer_form_switch_span {
+    display: none;
+}
+
+#add_mac_icon, .delete_computer_icon, .th_order_by {
+    cursor: pointer;
+}
+
+#add_computer_form #name, #add_computer_form .upper{
+    text-transform: uppercase;
+}
+
+#show_current_computers {
+    float: right;
+    width: calc(100% - 250px);
+    height: 100%;
+    margin-top:22px;
+    overflow: auto;
+}
+
+#top_buttons {
+    display: inline-block;
+}
+
+.error {
+    color: red;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.ignore_av {
+    min-width:82px;
+}
