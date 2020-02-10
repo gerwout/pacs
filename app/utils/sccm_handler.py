@@ -1,6 +1,8 @@
 import platform
 system = platform.system()
 if system == 'Windows':
+    import pythoncom
+    pythoncom.CoInitialize()
     import wmi
 else:
     import wmi_client_wrapper as wmi
