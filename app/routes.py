@@ -141,8 +141,8 @@ def logs():
         temp_log['user'] = log['user_name']
         if log['user_has_pin'] == "True":
             temp_log['user'] = temp_log['user'] + " (user has pin!)"
-        temp_log['action'] = "Checking: " + log['mac_addr'] + " from " + log['remote_ip'] + " (" + log['platform'] + ")"
-        temp_log['action'] = temp_log['action'] + " " + log['org_name'] + " - " + log['server_name'] + " (" + log['host_name'] + ") -> " + log['server_protocol'] + ":" + log['server_port']
+        temp_log['action'] = "Checking: " + str(log['mac_addr']) + " from " + str(log['remote_ip']) + " (" + str(log['platform']) + ")"
+        temp_log['action'] = temp_log['action'] + " " + str(log['org_name']) + " - " + str(log['server_name']) + " (" + str(log['host_name']) + ") -> " + str(log['server_protocol']) + ":" + str(log['server_port'])
         temp_log['action'] = temp_log['action'] + " (log id:" + str(log['_id']) + ")"
         temp_log['type'] = "log"
         logs.append(temp_log)
