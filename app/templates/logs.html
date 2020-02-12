@@ -1,0 +1,33 @@
+{% include "header.html" %}
+ <script language="javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+             $("body").on('click', '#show_home_button', function() {
+                 document.location.href = "/";
+             });
+        });
+ </script>
+
+<div id="search_logs_div">
+    {% include "logsearchform.html" %}
+</div>
+  <div id="show_current_logs">
+        <table id="logs_table" class="highlight">
+            <tr><th class="th_order_by">Time</th><th class="th_order_by">User</th><th class="th_order_by">Action</th><th class="th_order_by">Result</th></tr>
+            {% for log in logs %}
+                <tr>
+                    <td>{{ log.datetime }}</td>
+                    <td>{{ log.user }}</td>
+                    {% if log.type == "log" %}
+                    <td colspan="2">{{ log.action }}</td>
+                    {%  else  %}
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.result }}</td>
+                    {%  endif %}
+                </tr>
+            {% endfor %}
+            {% if logs|length == 0 %}
+                <tr><td colspan="4">There are no logs/audit trail found matching the search criteria.</td></tr>
+            {% endif %}
+        </table>
+    </div>
+{% include "footer.html" %}

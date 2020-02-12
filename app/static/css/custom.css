@@ -10,7 +10,7 @@ body {
     overflow: hidden;
 }
 
-#computer_table {
+#computer_table, #logs_table {
     border: 1px solid black;
 }
 
@@ -25,7 +25,7 @@ body {
     font-weight: bold;
 }
 
-#add_computer_form {
+#add_computer_form, #search_logs_div{
     width: 250px;
     float: left;
     border-width: 1px 0px 1px 1px;
@@ -48,7 +48,7 @@ body {
     text-transform: uppercase;
 }
 
-#show_current_computers {
+#show_current_computers, #show_current_logs {
     float: right;
     width: calc(100% - 250px);
     height: 100%;
@@ -68,4 +68,9 @@ body {
 
 .ignore_av {
     min-width:82px;
+}
+
+#start_date_time, #end_date_time {
+    font-size:12px;
+    width:200px;
 }

@@ -1,15 +1,16 @@
-#@todo: logging!
+#@todo query 2fa status in logs?
 from app import app, oidc, db, models, forms
-from flask import request, redirect, render_template, g, session, jsonify, abort
-import re, hashlib, os, importlib
+from flask import request, redirect, render_template, g, jsonify, abort
+import re, os, importlib
 from sqlalchemy import desc
 from app.utils.import_handler import import_handler
-import platform
+from app.utils.mongo_handler import mongo_handler
+import platform, datetime
 system = platform.system()
 if system == 'Windows':
     import pythoncom
 from pathlib import Path
-from itsdangerous import (URLSafeTimedSerializer, TimedJSONWebSignatureSerializer, BadSignature, SignatureExpired)
+from itsdangerous import (TimedJSONWebSignatureSerializer, BadSignature, SignatureExpired)
 
 def __verify_api_auth_token(token):
     s = TimedJSONWebSignatureSerializer(app.config['SECRET_API_KEY'])
@@ -27,16 +28,12 @@ def __generate_api_auth_token(json_dict, expiration=600):
 
     return s.dumps(json_dict).decode('utf-8')
 
-def __csrf_token():
-    csrf_token = hashlib.sha1(os.urandom(64)).hexdigest()
-    s = URLSafeTimedSerializer(app.secret_key, salt=os.urandom(64))
-    session['csrf_token'] = s.dumps(csrf_token)
-
-    return session['csrf_token']
-
 @app.route("/check-compliance", methods=['POST'])
 def check_compliance():
+    mongo = mongo_handler()
+    mongo.add_to_audit_trail("unknown", "Start check compliance check", "User is unknown, because we did not determine that yet")
     pacs_file = app.config['PACS_STATUS_FILE']
+
     if os.path.isfile(pacs_file):
         force_compliant = True
     else:
@@ -52,30 +49,114 @@ def check_compliance():
             connection_data = __verify_api_auth_token(auth_token)
             # some form of signature error, assume False, because of auth failure
             if not connection_data:
+                mongo.add_to_audit_trail("unknown", "JWT signature failed!",
+                                         "Suspicious request auth_token: " + auth_token)
+                mongo.add_to_audit_trail("unknown", "JWT signature failed!", "Not going to allow this connection")
+
                 can_connect = False
             else:
+                connection_data['timestamp'] = datetime.datetime.now().timestamp()
+                log_id = mongo.add_to_logs(connection_data)
                 has_valid_signature = True
                 engines = app.config['ENGINES'].split(",")
+                mongo.add_to_audit_trail(connection_data['user_name'], "JWT signature passed! log_id: " + str(log_id),
+                                         "Going to check compliance status")
+
                 for engine in engines:
+                    mongo.add_to_audit_trail(connection_data['user_name'],
+                                             "Checking app.antivirus." + engine,
+                                             "")
+
                     anti_virus = importlib.import_module('app.antivirus.' + engine)
                     instance = getattr(anti_virus, engine)()
                     compliant = instance.check_compliance(connection_data)
                     if not compliant:
+                        mongo.add_to_audit_trail(connection_data['user_name'],
+                                                 "Checking app.antivirus." + engine,
+                                                 "Not compliant or not in healthy state!, refuse connection")
                         can_connect = False
                         break
+                    else:
+                        mongo.add_to_audit_trail(connection_data['user_name'],
+                                                 "Checking app.antivirus." + engine,
+                                                 "Compliant and healthy")
+        else:
+            mongo.add_to_audit_trail("unknown", "Compliance check disabled system wide", "Going to allow this connection")
         json_to_sign = {"compliant": can_connect, "has_valid_signature": has_valid_signature }
         auth_token = __generate_api_auth_token(json_to_sign)
         json_to_return = {"auth_token": auth_token}
+        try:
+            mongo.add_to_audit_trail(connection_data['user_name'], "Connection allowed: " + str(can_connect), "logid: " + log_id)
+        except NameError:
+            pass
 
         return jsonify(json_to_return)
     # not a request with the application/json header, could be a suspicious form post
     else:
-         abort(404)
+        mongo.add_to_audit_trail("unknown", "Compliance check was not posted as mimetype JSON!",
+                                 "This could be someone trying to hack the service")
+        abort(404)
+
+@app.route('/logs', methods=['GET', 'POST'])
+@oidc.require_login
+def logs():
+    mongo = mongo_handler()
+    form = forms.LogSearchForm()
+    all_users = mongo.get_unique_users()
+    all_macs = mongo.get_unique_macs()
+    all_ips = mongo.get_unique_ips()
+
+    # succesfull form post, get values
+    if form.validate_on_submit():
+        start = datetime.datetime.strptime(request.form['start_date_time'], "%Y-%m-%dT%H:%M:%S")
+        end = datetime.datetime.strptime(request.form['end_date_time'], "%Y-%m-%dT%H:%M:%S")
+        user = request.form['user']
+        mac = request.form['mac']
+        ip = request.form['ip']
+
+        all_logs = mongo.get_all_logs(start=start, end=end, user=user, mac=mac, ip=ip)
+        audit_trail = mongo.get_audit_trail(start=start, end=end, user=user)
+    else:
+        all_logs = mongo.get_all_logs()
+        audit_trail = mongo.get_audit_trail()
+    logs = []
+
+    for idx, audit in enumerate(audit_trail):
+        temp_log = {}
+        dt = datetime.datetime.utcfromtimestamp(audit['timestamp'])
+        temp_log['timestamp'] = audit['timestamp']
+        temp_log['datetime'] = dt.strftime("%d-%m-%Y %H:%M:%S")
+        temp_log['user'] = audit['user']
+        temp_log['action'] = audit['action']
+        temp_log['result'] = audit['result']
+        temp_log['type'] = "audit"
+        logs.append(temp_log)
+
+    for idx, log in enumerate(all_logs):
+        temp_log = {}
+        dt = datetime.datetime.utcfromtimestamp(log['timestamp'])
+        temp_log['datetime'] = dt.strftime("%d-%m-%Y %H:%M:%S")
+        temp_log['timestamp'] = log['timestamp']
+        temp_log['user'] = log['user_name']
+        if log['user_has_pin'] == "True":
+            temp_log['user'] = temp_log['user'] + " (user has pin!)"
+        temp_log['action'] = "Checking: " + log['mac_addr'] + " from " + log['remote_ip'] + " (" + log['platform'] + ")"
+        temp_log['action'] = temp_log['action'] + " " + log['org_name'] + " - " + log['server_name'] + " (" + log['host_name'] + ") -> " + log['server_protocol'] + ":" + log['server_port']
+        temp_log['action'] = temp_log['action'] + " (log id:" + str(log['_id']) + ")"
+        temp_log['type'] = "log"
+        logs.append(temp_log)
+
+    sorted_logs = sorted(logs, key = lambda i: i['timestamp'], reverse=True)
+
+    return render_template('logs.html', show_sccm_button=False, logon=g.sso_identity, show_pacs_button=False,
+                           show_home_button=True, show_logs_button=False, logs=sorted_logs, form=form, users=all_users,
+                           macs=all_macs, ips=all_ips)
 
 @app.route('/', methods=['GET', 'POST'], defaults={'order_by': 'id', 'asc_or_desc': 'asc'})
 @app.route('/index/<order_by>/<asc_or_desc>', methods=['GET', 'POST'])
 @oidc.require_login
 def index(order_by, asc_or_desc):
+    mongo = mongo_handler()
     allowed_order_by_values = ['id', 'name', 'description', 'last_logon_name', 'ignore_av_check', 'source_id']
     allowed_asc_or_desc_values = ['asc', 'desc']
     order_by = order_by.lower()
@@ -90,10 +171,6 @@ def index(order_by, asc_or_desc):
     form = forms.ComputerForm()
     action = "add"
     if request.method == 'POST':
-        if not 'csrf_token' in request.values or not 'csrf_token' in session:
-            errors.append('No CSRF token available!')
-        if session.get('csrf_token') != request.values.get('csrf_token'):
-            errors.append('CSRF token not valid!')
         id = request.values.get('id', '').strip()
 
         if id != "" and not id.isdigit():
@@ -133,6 +210,7 @@ def index(order_by, asc_or_desc):
                 db.session.add(comp)
                 db.session.flush()
                 id = comp.id
+                mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Adding manual computer " + name, "Ignore compliance check: " + str(ignore_av_check))
             # edit existing computer
             else:
                 comp = models.Computer.query.filter_by(id=id).first()
@@ -145,6 +223,8 @@ def index(order_by, asc_or_desc):
                 mac = models.MacAddress(comp_id=id, mac=mac_address)
                 db.session.add(mac)
             db.session.commit()
+            mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Editing manual computer " + name,
+                                     "Ignore compliance check: " + str(ignore_av_check))
             # lets reset the form values
             id = ""
             name = ""
@@ -168,8 +248,6 @@ def index(order_by, asc_or_desc):
     else:
         computers = models.Computer.query.order_by(desc(order_by)).all()
 
-    csrf_token = __csrf_token()
-
     show_sccm_button = app.config.get('SCCM_SHOW_BUTTON', False)
     pacs_file = app.config['PACS_STATUS_FILE']
     if os.path.isfile(pacs_file):
@@ -178,23 +256,23 @@ def index(order_by, asc_or_desc):
         pacs_enabled = True
 
     return render_template('index.html', form=form, errors=errors, mac_addresses=originals, computers=computers,
-                           csrf_token=csrf_token, action=action, id=id, ignore_av_check=ignore_av_check,
+                           action=action, id=id, ignore_av_check=ignore_av_check,
                            logon=g.sso_identity, order_by=order_by, asc_or_desc=asc_or_desc,
-                           show_sccm_button=show_sccm_button, pacs_enabled=pacs_enabled)
+                           show_sccm_button=show_sccm_button, show_pacs_button=True, pacs_enabled=pacs_enabled,
+                           show_home_button=False, show_logs_button=True)
 
 @app.route('/delete/<int:computer_id>', methods=['POST'])
 @oidc.require_login
 def delete_computer(computer_id):
+    mongo = mongo_handler()
     errors = []
-    if not 'csrf_token' in request.values or not 'csrf_token' in session:
-        errors.append('No CSRF token available!')
-    if session.get('csrf_token') != request.values.get('csrf_token'):
-        errors.append('CSRF token not valid!')
     if len(errors) > 0:
         return jsonify({"success": False, "errors": errors })
     else:
         models.MacAddress.query.filter_by(comp_id=computer_id).delete()
-        models.Computer.query.filter_by(id=computer_id).delete()
+        comp = models.Computer.query.filter_by(id=computer_id)
+        mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Deleting manual computer " + comp.name, "Succeeded")
+        comp.delete()
         db.session.commit()
 
         return jsonify({"success": True })
@@ -212,26 +290,24 @@ def check_if_authenticated():
 @app.route('/disable_or_enable_pacs', methods=['POST'])
 @oidc.require_login
 def disable_or_enable_pacs():
+    mongo = mongo_handler()
     errors = []
-    if not 'csrf_token' in request.values or not 'csrf_token' in session:
-        errors.append('No CSRF token available!')
-    if session.get('csrf_token') != request.values.get('csrf_token'):
-        errors.append('CSRF token not valid!')
-    csrf_token = __csrf_token()
     if len(errors) == 0:
         pacs_file = app.config['PACS_STATUS_FILE']
         if os.path.isfile(pacs_file):
             os.remove(pacs_file)
+            mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Enabled system wide compliance check!", "Succeeded")
             message = "Enabled compliance check for PACS!\n"
         else:
             Path(pacs_file).touch()
+            mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Disabled system wide compliance check!", "Succeeded")
             message = "Disabled compliance check for PACS!\n"
     else:
         message = "Not going to do this!\n"
         for error in errors:
             message = message + error + "\n"
 
-    return jsonify({"message": message, "csrf_token": csrf_token})
+    return jsonify({"message": message })
 
 @app.route("/logout")
 def logout():
@@ -241,22 +317,20 @@ def logout():
 @app.route('/sccm_import', methods=['POST'])
 @oidc.require_login
 def sccm_import():
+    mongo = mongo_handler()
     if app.config['SCCM_SHOW_BUTTON']:
         errors = []
-        if not 'csrf_token' in request.values or not 'csrf_token' in session:
-            errors.append('No CSRF token available!')
-        if session.get('csrf_token') != request.values.get('csrf_token'):
-            errors.append('CSRF token not valid!')
-        csrf_token = __csrf_token()
         if len(errors) == 0:
             # avoid threading issues on WIndows
             if system == 'Windows':
                 pythoncom.CoInitialize()
+            mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "SCCM Import initiated", "busy")
             sccm_import = import_handler()
             message = sccm_import.import_from_sccm_and_ad()
+            mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "SCCM Import finalized", "done")
         else:
             message = "Import failed!\n"
             for error in errors:
                 message = message + error + "\n"
 
-        return jsonify({"message": message, "csrf_token": csrf_token})
+        return jsonify({"message": message })

@@ -1,37 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PACS (Pritunl access control system)</title>
-    <link rel="shortcut icon" type="image/png" href="/images/favicon.png"/>
-    <link href="/css/font.css" rel="stylesheet">
-    <link href="/css/custom.css" rel="stylesheet">
-    <link rel="stylesheet" href="/css/materialize.min.css">
-    <script src="/js/jquery-3.4.1.min.js"></script>
-    <script src="/js/custom.js"></script>
-    {% if action == "edit" %}
+{% include "header.html" %}
+    <script language="javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            $("body").on('click', '#show_logs_button', function() {
+                     document.location.href = "/logs";
+            });
+        });
+    </script>
+{% if action == "edit" %}
     <script language="javascript">
         document.addEventListener('DOMContentLoaded', function () {
             switch_add_to_edit();
         });
     </script>
-    {% endif %}
-</head>
-<body>
-        <div id="top">
-                <div id="top_buttons">
-                    <i class="waves-effect waves-light btn waves-input-wrapper"><input class="waves-button-input" id="pacs_status_button" type="submit" value="{% if pacs_enabled %}Disable{% else %}Enable{% endif %} PACS"></i>
-                    {% if show_sccm_button %}<i class="waves-effect waves-light btn waves-input-wrapper"><input class="waves-button-input" id="sccm_import_button" type="submit" value="SCCM Import"></i>{% endif %}
-                </div>
-            <div id="logon_details">{{ logon }} <a href="/logout">logout</a></div>
-        </div>
+{% endif %}
         <div id="add_computer_form">
             {% for error in errors %}
                 <div class="error">{{ error }}</div>
             {% endfor %}
             <form method="post" id="computer_form" action="/{{route}}">
-                <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token }}"/>
+                <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}"/>
                 <input type="hidden" id="computer_id" name="id" value="{{ id }}"/>
                 <div class="input-field">
                     {{ form.name() }}
@@ -82,8 +69,6 @@
                 {% endfor %}
             </table>
         </div>
-    <script src="/js/materialize.min.js"></script>
     <input type="hidden" id="order_by" value="{{ order_by }}"/>
     <input type="hidden" id="asc_or_desc" value="{{ asc_or_desc }}"/>
-</body>
-</html>
+{% include "footer.html" %}

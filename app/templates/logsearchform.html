@@ -1,0 +1,49 @@
+ <form method="post" action="{{ request.path }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <table>
+        <tr>
+            <td>{{ form.start_date_time.label }}</td>
+            <td>{{ form.start_date_time }}</td>
+        </tr>
+        <tr>
+            <td>{{ form.end_date_time.label }}</td>
+            <td>{{ form.end_date_time }}</td>
+        </tr>
+        <tr>
+            <td>{{form.user.label}}</td>
+            <td>
+                {{form.user(list="user_list")}}
+                <datalist id="user_list">
+                {% for user in users %}
+                    <option value="{{ user }}">
+                {% endfor %}
+                </datalist>
+            </td>
+        </tr>
+        <tr>
+            <td>{{form.mac.label}}</td>
+            <td>
+                {{form.mac(list="mac_list")}}
+                <datalist id="mac_list">
+                {% for mac in macs %}
+                    <option value="{{ mac }}">
+                {% endfor %}
+                </datalist>
+            </td>
+        </tr>
+        <tr>
+            <td>{{form.ip.label}}</td>
+            <td>
+                {{form.ip(list="ip_list")}}
+                <datalist id="ip_list">
+                {% for ip in ips %}
+                    <option value="{{ ip }}">
+                {% endfor %}
+                </datalist>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2"><i class="waves-effect waves-light btn waves-input-wrapper">{{form.submit}}</i></td>
+        </tr>
+    </table>
+</form>
