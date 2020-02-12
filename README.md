@@ -8,6 +8,28 @@ your antivirus before connection is allowed. PACS currently supports Cylance ant
 (https://www.cylance.com). PACS can optionally integrate with SCCM to automatically import systems 
 that have been added to 
 
+##Prerequisite: Setup Mongo DB
+Install Mongo DB 
+
+`apt install mongodb-server`
+
+Connect to Mongo
+
+`mongo mongodb://127.0.0.1:27017`
+
+Create a user in MongoDB
+```
+use admin
+db.createUser(
+  {
+    user: "mongoadmin",
+    pwd: "mongopassword", 
+     roles: ["userAdminAnyDatabase", "dbAdminAnyDatabase", "readWriteAnyDatabase"]
+  }
+)
+
+```
+
 ## Prerequisite: Setup you OIDC compatible identity provider
 Under the hood PACS uses the flask-oidc (https://flask-oidc.readthedocs.io/en/latest/) package. This 
 is the only supported authentication mechanism. Authentication is fully federated, so PACS does 
@@ -104,6 +126,9 @@ PACS_STATUS_FILE=C/etc/pacs/pacs.down
 [db]
 # sqlite database file
 SQLALCHEMY_DATABASE_URI=sqlite:////etc/pacs/app.db
+# mongo db instance, this is used for audit trail and logging
+MONGO_DB_URI=mongodb://mongoadmin:mongopassword@127.0.0.1:27017/
+MONGO_DB_NAME=pacs
 
 [sso]
 # file that contains the OpenID client secrets
