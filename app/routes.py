@@ -1,5 +1,5 @@
 #@todo query 2fa status in logs?
-from app import app, oidc, db, models, forms
+from app import app, oidc, db, models, forms, csrf
 from flask import request, redirect, render_template, g, jsonify, abort
 import re, os, importlib
 from sqlalchemy import desc
@@ -29,6 +29,7 @@ def __generate_api_auth_token(json_dict, expiration=600):
     return s.dumps(json_dict).decode('utf-8')
 
 @app.route("/check-compliance", methods=['POST'])
+@csrf.exempt
 def check_compliance():
     mongo = mongo_handler()
     mongo.add_to_audit_trail("unknown", "Start check compliance check", "User is unknown, because we did not determine that yet")
