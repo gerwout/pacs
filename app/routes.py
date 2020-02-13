@@ -44,9 +44,9 @@ def check_compliance():
     # only handle the request when it contains application/json mimetype header
     # this is important to prevent CSRF kind of form posts
     if request.is_json:
+        data = request.get_json()
+        auth_token = data['auth_token']
         if not force_compliant:
-            data = request.get_json()
-            auth_token = data['auth_token']
             connection_data = __verify_api_auth_token(auth_token)
             # some form of signature error, assume False, because of auth failure
             if not connection_data:
@@ -83,6 +83,21 @@ def check_compliance():
                                                  "Compliant and healthy")
         else:
             mongo.add_to_audit_trail("unknown", "Compliance check disabled system wide", "Going to allow this connection")
+            # even though we are not going to check the data that has been sent (i.e. compliance check is disabled system wide)
+            # we do want to log who did the request
+            connection_data = __verify_api_auth_token(auth_token)
+            # some form of signature error, assume False, because of auth failure
+            if not connection_data:
+                has_valid_signature = False
+                mongo.add_to_audit_trail("unknown", "Ignoring (i.e. system wide PACS disabled) JWT signature failed!",
+                                         "Suspicious request auth_token: " + auth_token)
+            else:
+                connection_data['timestamp'] = datetime.datetime.now().timestamp()
+                log_id = mongo.add_to_logs(connection_data)
+                has_valid_signature = True
+                mongo.add_to_audit_trail(connection_data['user_name'], "JWT signature passed! log_id: " + str(log_id),
+                                         "Not going to check compliance status (PACS system wide disabled)")
+
         json_to_sign = {"compliant": can_connect, "has_valid_signature": has_valid_signature }
         auth_token = __generate_api_auth_token(json_to_sign)
         json_to_return = {"auth_token": auth_token}
