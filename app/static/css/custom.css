@@ -14,6 +14,18 @@ body {
     border: 1px solid black;
 }
 
+#logs_table {
+    min-height:499px;
+}
+
+#logs_table th {
+    height: 20px;
+}
+
+#logs_table td {
+    vertical-align: top;
+}
+
 #top {
     width: 100%;
 }

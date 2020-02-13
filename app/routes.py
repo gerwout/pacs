@@ -166,7 +166,7 @@ def logs():
 
     return render_template('logs.html', show_sccm_button=False, logon=g.sso_identity, show_pacs_button=False,
                            show_home_button=True, show_logs_button=False, logs=sorted_logs, form=form, users=all_users,
-                           macs=all_macs, ips=all_ips)
+                           macs=all_macs, ips=all_ips, version=app.config['VERSION'])
 
 @app.route('/', methods=['GET', 'POST'], defaults={'order_by': 'id', 'asc_or_desc': 'asc'})
 @app.route('/index/<order_by>/<asc_or_desc>', methods=['GET', 'POST'])
@@ -275,7 +275,7 @@ def index(order_by, asc_or_desc):
                            action=action, id=id, ignore_av_check=ignore_av_check,
                            logon=g.sso_identity, order_by=order_by, asc_or_desc=asc_or_desc,
                            show_sccm_button=show_sccm_button, show_pacs_button=True, pacs_enabled=pacs_enabled,
-                           show_home_button=False, show_logs_button=True)
+                           show_home_button=False, show_logs_button=True, version=app.config['VERSION'])
 
 @app.route('/delete/<int:computer_id>', methods=['POST'])
 @oidc.require_login
