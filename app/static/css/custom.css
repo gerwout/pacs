@@ -12,6 +12,13 @@ body {
 
 #computer_table, #logs_table {
     border: 1px solid black;
+    font-size: 14px;
+    width: 100%;
+}
+
+#mac_device_id_info {
+    font-weight: bolder;
+    font-size: 12px;
 }
 
 #logs_table {
@@ -22,7 +29,7 @@ body {
     height: 20px;
 }
 
-#logs_table td {
+#logs_table td, #computer_table td {
     vertical-align: top;
 }
 
@@ -76,10 +83,6 @@ body {
     color: red;
     font-weight: bold;
     font-size: 12px;
-}
-
-.ignore_av {
-    min-width:82px;
 }
 
 #start_date_time, #end_date_time {

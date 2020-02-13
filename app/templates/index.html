@@ -36,6 +36,10 @@
                           </label>
                     </span>
                 </div>
+                <div class="input-field">
+                    {{ form.device_id() }}
+                    {{ form.device_id.label() }}
+                </div>
                 {% for mac_address in mac_addresses %}
                 <div class="input-field">
                   <input class="upper mac_address" id="mac{{ loop.index }}" name="mac" value="{{ mac_address }}" type="text">
@@ -50,19 +54,21 @@
                 <span id="computer_form_switch_span"><input class="waves-effect waves-light btn" type="submit" value="Switch to add" /></span>
             </form>
             {% if pacs_enabled %}
-                <img src="/images/funny_pigeon.gif" title="PACS is enabled :-)"\>
+                <img src="/images/funny_pigeon.gif" title="PACS is enabled :-)"\><br/>
             {% endif %}
+            <div id="mac_device_id_info">Please note: Android and IOS devices do not pass a mac address when connecting. This is the reason you can only add a mac address or a device id.</div>
         </div>
         <div id="show_current_computers">
             <table id="computer_table" class="highlight">
-                <tr><th class="th_order_by">Name</th><th class="th_order_by">Description</th><th class="th_order_by">Last logon</th><th class="ignore_av th_order_by">Ignore AV</th><th>Mac addresses</th><th class="th_order_by">Source</th><th>Actions</th></tr>
+                <tr><th class="th_order_by">Name</th><th class="th_order_by">Description</th><th class="th_order_by">Last logon</th><th class="ignore_av th_order_by">Ignore AV</th><th>Mac addresses</th><th class="th_order_by">Device ID</th><th class="th_order_by">Source</th><th>Actions</th></tr>
                 {% for computer in computers %}
                     <tr>
                         <td>{{ computer.name }}</td>
                         <td>{{ computer.description }}</td>
                         <td>{{ computer.last_logon_name }}</td>
                         <td class="ignore_av">{{ computer.ignore_av_check }}</td>
-                        <td>{% for mac_address in computer.mac_addresses %}{{ mac_address }} {% endfor %}</td>
+                        <td>{% for mac_address in computer.mac_addresses %}{% if loop.index > 1 %}<br/>{% endif %}{{ mac_address }} {% endfor %}{% if computer.mac_addresses|length == 0 %}None{% endif %}</td>
+                        <td>{% if computer.device_id == "" %}None{% else %}{{ computer.device_id }}{% endif %}</td>
                         <td>{{ computer.get_source() }}</td>
                         <td><a class="delete_computer_icon" data-id="{{ computer.id }}"><i class="material-icons mdc-text-field__icon">delete</i></a></td>
                     </tr>

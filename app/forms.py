@@ -5,7 +5,6 @@ from wtforms.fields.html5 import DateTimeLocalField
 from wtforms import SubmitField, StringField
 from wtforms.validators import InputRequired
 from datetime import datetime
-from app.utils.mongo_handler import mongo_handler
 
 class MacAddressForm(ModelForm):
     class Meta:

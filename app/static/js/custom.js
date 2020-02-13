@@ -96,7 +96,6 @@ document.addEventListener('DOMContentLoaded', function () {
             var th_value = $(this).text();
             var cur_order_by = $('#order_by').val();
             var cur_asc_or_desc = $('#asc_or_desc').val();
-
             switch(th_value) {
                 case "Name":
                     var order_by = "name";
@@ -113,11 +112,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 case "Source":
                     var order_by = "source_id"
                     break;
+                case "Device ID":
+                    var order_by = "device_id"
+                    break;
                 default:
                     return False;
                     break;
            }
-
            if (order_by == cur_order_by) {
                if (cur_asc_or_desc == "asc") {
                    cur_asc_or_desc = "desc";
@@ -135,14 +136,22 @@ document.addEventListener('DOMContentLoaded', function () {
         var id = $(this).find("td:last-child a").data("id");
         var name = $.trim($(this).find("td").eq(0).text());
         var description = $.trim($(this).find("td").eq(1).text());
+        var device_id = $.trim($(this).find("td").eq(5).text());
         var ignore_av_check = $.trim($(this).find("td").eq(3).text());
         var mac_addresses = $.trim($(this).find("td").eq(4).text()).split(" ");
-
+        if (mac_addresses == "None") {
+            mac_addresses = "";
+        }
+        if (device_id == "None") {
+            device_id = "";
+        }
         $("#computer_id").val(id);
         $("#name").focus();
         $("#name").val(name);
         $("#description").focus();
         $("#description").val(description);
+        $("#device_id").focus();
+        $("#device_id").val(device_id)
         $("#ignore_av_check").prop('checked', ignore_av_check == "True");
 
         var current_mac_field_count = $(".mac_address").length;

@@ -46,6 +46,7 @@ def check_compliance():
     if request.is_json:
         data = request.get_json()
         auth_token = data['auth_token']
+        # so, PACS is system wide enabled, we need to verify the compliance status
         if not force_compliant:
             connection_data = __verify_api_auth_token(auth_token)
             # some form of signature error, assume False, because of auth failure
@@ -59,28 +60,42 @@ def check_compliance():
                 connection_data['timestamp'] = datetime.datetime.now().timestamp()
                 log_id = mongo.add_to_logs(connection_data)
                 has_valid_signature = True
-                engines = app.config['ENGINES'].split(",")
-                mongo.add_to_audit_trail(connection_data['user_name'], "JWT signature passed! log_id: " + str(log_id),
-                                         "Going to check compliance status")
+                identifier = connection_data['mac_addr'].upper()
 
-                for engine in engines:
+                # we need to do a device id lookup
+                if re.match("^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$", identifier) and models.Computer.query.filter_by(device_id=identifier).count() == 0:
+                    mongo.add_to_audit_trail(connection_data['user_name'], "Device ID " + str(identifier) + " not found in PACS!",
+                                             "Not going to allow this connection")
+                    can_connect = False
+                # ok, no device id, when then it has to be a mac address
+                elif models.MacAddress.query.filter_by(mac=identifier.replace(":", "").replace("-", "").replace(".", "")).count() == 0:
                     mongo.add_to_audit_trail(connection_data['user_name'],
-                                             "Checking app.antivirus." + engine,
-                                             "")
+                                             "Mac address " + str(identifier) + " not found in PACS!",
+                                             "Not going to allow this connection")
+                    can_connect = False
+                else:
+                    engines = app.config['ENGINES'].split(",")
+                    mongo.add_to_audit_trail(connection_data['user_name'], "JWT signature passed! log_id: " + str(log_id),
+                                             "Going to check compliance status")
 
-                    anti_virus = importlib.import_module('app.antivirus.' + engine)
-                    instance = getattr(anti_virus, engine)()
-                    compliant = instance.check_compliance(connection_data)
-                    if not compliant:
+                    for engine in engines:
                         mongo.add_to_audit_trail(connection_data['user_name'],
                                                  "Checking app.antivirus." + engine,
-                                                 "Not compliant or not in healthy state!, refuse connection")
-                        can_connect = False
-                        break
-                    else:
-                        mongo.add_to_audit_trail(connection_data['user_name'],
-                                                 "Checking app.antivirus." + engine,
-                                                 "Compliant and healthy")
+                                                 "")
+
+                        anti_virus = importlib.import_module('app.antivirus.' + engine)
+                        instance = getattr(anti_virus, engine)()
+                        compliant = instance.check_compliance(connection_data)
+                        if not compliant:
+                            mongo.add_to_audit_trail(connection_data['user_name'],
+                                                     "Checking app.antivirus." + engine,
+                                                     "Not compliant or not in healthy state!, refuse connection")
+                            can_connect = False
+                            break
+                        else:
+                            mongo.add_to_audit_trail(connection_data['user_name'],
+                                                     "Checking app.antivirus." + engine,
+                                                     "Compliant and healthy")
         else:
             mongo.add_to_audit_trail("unknown", "Compliance check disabled system wide", "Going to allow this connection")
             # even though we are not going to check the data that has been sent (i.e. compliance check is disabled system wide)
@@ -173,7 +188,7 @@ def logs():
 @oidc.require_login
 def index(order_by, asc_or_desc):
     mongo = mongo_handler()
-    allowed_order_by_values = ['id', 'name', 'description', 'last_logon_name', 'ignore_av_check', 'source_id']
+    allowed_order_by_values = ['id', 'name', 'description', 'last_logon_name', 'device_id', 'ignore_av_check', 'source_id']
     allowed_asc_or_desc_values = ['asc', 'desc']
     order_by = order_by.lower()
     asc_or_desc = asc_or_desc.lower()
@@ -196,12 +211,19 @@ def index(order_by, asc_or_desc):
         ignore_av_check = request.values.get('ignore_av_check', False)
         ignore_av_check = True if ignore_av_check == "on" else False
         mac_addresses = list(filter(None, request.form.getlist('mac')))
+        device_id = request.values.get('device_id', '').strip().upper()
+
         if name == "":
             errors.append('Name is a required field!')
         if description == "":
             errors.append('Description is a required field!')
-        if len(mac_addresses) == 0:
-            errors.append('Mac address is a required field!')
+        if len(mac_addresses) == 0 and device_id == "":
+            errors.append('You need to supply one or more mac addresses or a device id!')
+        if len(mac_addresses) > 0 and device_id != "":
+            errors.append("You can't supply a mac address and a device id!")
+        # example: 8F2D176D-1B11-4507-9E97-FC8A5C9C7194
+        if len(mac_addresses) == 0 and not re.match("^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$", device_id):
+            errors.append("Device ID is not a valid UUID!")
 
         for mac_address in mac_addresses:
             original = mac_address
@@ -222,7 +244,7 @@ def index(order_by, asc_or_desc):
             source_id = result.id
             # add new computer
             if id == "":
-                comp = models.Computer(name=name, description=description, source_id=source_id, last_logon_name="", ignore_av_check=ignore_av_check)
+                comp = models.Computer(name=name, description=description, device_id=device_id, source_id=source_id, last_logon_name="", ignore_av_check=ignore_av_check)
                 db.session.add(comp)
                 db.session.flush()
                 id = comp.id
@@ -232,19 +254,22 @@ def index(order_by, asc_or_desc):
                 comp = models.Computer.query.filter_by(id=id).first()
                 comp.name = name
                 comp.description = description
+                comp.device_id = device_id
                 comp.ignore_av_check = ignore_av_check
                 models.MacAddress.query.filter_by(comp_id=id).delete()
+                mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Editing manual computer " + name,
+                                         "Ignore compliance check: " + str(ignore_av_check))
             for mac_address in mac_addresses:
                 mac_address = mac_address.replace(":", "").replace("-", "").replace(".", "").upper()
                 mac = models.MacAddress(comp_id=id, mac=mac_address)
                 db.session.add(mac)
             db.session.commit()
-            mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Editing manual computer " + name,
-                                     "Ignore compliance check: " + str(ignore_av_check))
+
             # lets reset the form values
             id = ""
             name = ""
             description = ""
+            device_id = ""
             ignore_av_check = False
             originals = []
         elif len(errors) > 0 and id.isdigit():
@@ -253,10 +278,12 @@ def index(order_by, asc_or_desc):
         id = ""
         name = ""
         description = ""
+        device_id = ""
         ignore_av_check = False
 
     form.name.data = name
     form.description.data = description
+    form.device_id.data = device_id
     if len(originals) == 0:
         originals.append("")
     if asc_or_desc == "asc":
@@ -287,9 +314,14 @@ def delete_computer(computer_id):
     else:
         models.MacAddress.query.filter_by(comp_id=computer_id).delete()
         comp = models.Computer.query.filter_by(id=computer_id)
-        mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Deleting manual computer " + comp.name, "Succeeded")
+        try:
+            name = comp.first().name
+        except:
+            name = "Computer not found!"
         comp.delete()
         db.session.commit()
+        mongo.add_to_audit_trail(g.oidc_id_token['preferred_username'], "Deleting manual computer " + name,
+                                 "Succeeded")
 
         return jsonify({"success": True })
 
