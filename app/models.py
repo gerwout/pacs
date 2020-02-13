@@ -32,6 +32,7 @@ class Computer(db.Model):
     last_logon_name = Column(db.String(120), index=True, unique=False)
     ignore_av_check = Column(db.Boolean, index=True, unique=False)
     source_id = Column(db.Integer, index=True, nullable=False)
+    device_id = Column(db.String(36), index=True, unique=True)
     mac_addresses = db.relationship('MacAddress', backref='computer')
 
     def get_source(self):
