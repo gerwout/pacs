@@ -1,4 +1,5 @@
 #@todo query 2fa status in logs?
+#@todo when signature fails, we need to show stuff
 from app import app, oidc, db, models, forms, csrf
 from flask import request, redirect, render_template, g, jsonify, abort
 import re, os, importlib
@@ -32,7 +33,7 @@ def __generate_api_auth_token(json_dict, expiration=600):
 @csrf.exempt
 def check_compliance():
     mongo = mongo_handler()
-    mongo.add_to_audit_trail("unknown", "Start check compliance check", "User is unknown, because we did not determine that yet")
+    mongo.add_to_audit_trail("unknown", "Start compliance check", "User is unknown, because we did not determine that yet")
     pacs_file = app.config['PACS_STATUS_FILE']
 
     if os.path.isfile(pacs_file):
@@ -61,41 +62,41 @@ def check_compliance():
                 log_id = mongo.add_to_logs(connection_data)
                 has_valid_signature = True
                 identifier = connection_data['mac_addr'].upper()
+                mongo.add_to_audit_trail(connection_data['user_name'], "JWT signature passed! log_id: " + str(log_id), "Going to check compliance status")
 
-                # we need to do a device id lookup
-                if re.match("^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$", identifier) and models.Computer.query.filter_by(device_id=identifier).count() == 0:
-                    mongo.add_to_audit_trail(connection_data['user_name'], "Device ID " + str(identifier) + " not found in PACS!",
-                                             "Not going to allow this connection")
-                    can_connect = False
-                # ok, no device id, when then it has to be a mac address
-                elif models.MacAddress.query.filter_by(mac=identifier.replace(":", "").replace("-", "").replace(".", "")).count() == 0:
-                    mongo.add_to_audit_trail(connection_data['user_name'],
-                                             "Mac address " + str(identifier) + " not found in PACS!",
-                                             "Not going to allow this connection")
-                    can_connect = False
+                # device id, so either Android or IOS device is connecting
+                if re.match("^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$", identifier):
+                    if models.Computer.query.filter_by(device_id=identifier).count() == 0:
+                        mongo.add_to_audit_trail(connection_data['user_name'], "Device ID " + str(identifier) + " not found in PACS!", "Not going to allow this connection")
+                        can_connect = False
+                    else:
+                        mongo.add_to_audit_trail(connection_data['user_name'], "Device ID " + str(identifier) + " found in PACS!", "Going to allow this connection, we can't do AV check for device id yet.")
+                        can_connect = True
+                # no device id, so has to be a mac address
                 else:
-                    engines = app.config['ENGINES'].split(",")
-                    mongo.add_to_audit_trail(connection_data['user_name'], "JWT signature passed! log_id: " + str(log_id),
-                                             "Going to check compliance status")
+                    if models.MacAddress.query.filter_by(mac=identifier.replace(":", "").replace("-", "").replace(".", "")).count() == 0:
+                        mongo.add_to_audit_trail(connection_data['user_name'], "Mac address " + str(identifier) + " not found in PACS!", "Not going to allow this connection")
+                        can_connect = False
+                    else:
+                        mongo.add_to_audit_trail(connection_data['user_name'], "Mac address " + str(identifier) + " found in PACS!", "Going to continue to AV check when enabled for this device")
+                        engines = app.config['ENGINES'].split(",")
 
-                    for engine in engines:
-                        mongo.add_to_audit_trail(connection_data['user_name'],
-                                                 "Checking app.antivirus." + engine,
-                                                 "")
+                        for engine in engines:
+                            mongo.add_to_audit_trail(connection_data['user_name'], "Checking app.antivirus." + engine, "")
 
-                        anti_virus = importlib.import_module('app.antivirus.' + engine)
-                        instance = getattr(anti_virus, engine)()
-                        compliant = instance.check_compliance(connection_data)
-                        if not compliant:
-                            mongo.add_to_audit_trail(connection_data['user_name'],
-                                                     "Checking app.antivirus." + engine,
-                                                     "Not compliant or not in healthy state!, refuse connection")
-                            can_connect = False
-                            break
-                        else:
-                            mongo.add_to_audit_trail(connection_data['user_name'],
-                                                     "Checking app.antivirus." + engine,
-                                                     "Compliant and healthy")
+                            anti_virus = importlib.import_module('app.antivirus.' + engine)
+                            instance = getattr(anti_virus, engine)()
+                            compliant = instance.check_compliance(connection_data)
+                            if not compliant:
+                                mongo.add_to_audit_trail(connection_data['user_name'],
+                                                         "Checking app.antivirus." + engine,
+                                                         "Not compliant or not in healthy state!, refuse connection")
+                                can_connect = False
+                                break
+                            else:
+                                mongo.add_to_audit_trail(connection_data['user_name'],
+                                                         "Checking app.antivirus." + engine,
+                                                         "Compliant and healthy")
         else:
             mongo.add_to_audit_trail("unknown", "Compliance check disabled system wide", "Going to allow this connection")
             # even though we are not going to check the data that has been sent (i.e. compliance check is disabled system wide)
