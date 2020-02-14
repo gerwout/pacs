@@ -1,6 +1,7 @@
 from app import app
 from pymongo import MongoClient, DESCENDING
 from datetime import datetime
+from bson.objectid import ObjectId
 import pprint
 
 class mongo_handler():
@@ -38,6 +39,12 @@ class mongo_handler():
         result = self.db.logs.insert_one(dictionary)
 
         return result.inserted_id
+
+    def get_all_log_ids_for_user(self, user, limit):
+        return self.db.logs.find({"user_name": user}).sort("timestamp", DESCENDING).limit(limit)
+
+    def get_log_id(self, logid):
+        return self.db.logs.find({"_id": ObjectId(logid)})
 
     def add_to_audit_trail(self, user, action, result):
         timestamp = datetime.now().timestamp()

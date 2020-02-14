@@ -117,7 +117,12 @@ def check_compliance():
         auth_token = __generate_api_auth_token(json_to_sign)
         json_to_return = {"auth_token": auth_token}
         try:
-            mongo.add_to_audit_trail(connection_data['user_name'], "Connection allowed: " + str(can_connect), "logid: " + str(log_id))
+            if not connection_data:
+                user_name = "unknown"
+            else:
+                user_name = connection_data['user_name']
+
+            mongo.add_to_audit_trail(user_name, "Connection allowed: " + str(can_connect), "logid: " + str(log_id))
         except NameError:
             pass
 
