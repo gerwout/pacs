@@ -10,6 +10,22 @@ body {
     overflow: hidden;
 }
 
+#logs_table {
+    table-layout: fixed;
+}
+
+.time_col {
+    width:156px;
+}
+
+.user_col {
+    width:260px;
+}
+
+.log_col, action_col, result_col {
+    width: auto;
+}
+
 #computer_table, #logs_table {
     border: 1px solid black;
     font-size: 14px;

@@ -12,16 +12,16 @@
 </div>
   <div id="show_current_logs">
         <table id="logs_table" class="highlight">
-            <tr><th class="th_order_by">Time</th><th class="th_order_by">User</th><th class="th_order_by">Action</th><th class="th_order_by">Result</th></tr>
+            <tr><th class="th_order_by time_col">Time</th><th class="th_order_by user_col">User</th><th class="th_order_by action_col">Action</th><th class="th_order_by result_col">Result</th></tr>
             {% for log in logs %}
                 <tr>
-                    <td>{{ log.datetime }}</td>
-                    <td>{{ log.user }}</td>
+                    <td class="time_col">{{ log.datetime }}</td>
+                    <td class="user_col">{{ log.user }}</td>
                     {% if log.type == "log" %}
-                    <td colspan="2">{{ log.action }}</td>
+                    <td class="log_col" colspan="2">{{ log.action }}</td>
                     {%  else  %}
-                    <td>{{ log.action }}</td>
-                    <td>{{ log.result }}</td>
+                    <td class="action_col">{{ log.action }}</td>
+                    <td class="result_col">{{ log.result }}</td>
                     {%  endif %}
                 </tr>
             {% endfor %}
