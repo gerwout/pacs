@@ -149,9 +149,12 @@ def logs():
         user = request.form['user']
         mac = request.form['mac']
         ip = request.form['ip']
-
+        only_logs = request.form.get('logs_only', False)
         all_logs = mongo.get_all_logs(start=start, end=end, user=user, mac=mac, ip=ip)
-        audit_trail = mongo.get_audit_trail(start=start, end=end, user=user)
+        if only_logs == "y":
+            audit_trail = []
+        else:
+            audit_trail = mongo.get_audit_trail(start=start, end=end, user=user)
     else:
         all_logs = mongo.get_all_logs()
         audit_trail = mongo.get_audit_trail()

@@ -2,7 +2,7 @@ from wtforms_alchemy import ModelForm
 from app.models import Computer, MacAddress
 from flask_wtf import FlaskForm
 from wtforms.fields.html5 import DateTimeLocalField
-from wtforms import SubmitField, StringField
+from wtforms import SubmitField, StringField, BooleanField
 from wtforms.validators import InputRequired
 from datetime import datetime
 
@@ -21,5 +21,5 @@ class LogSearchForm(FlaskForm):
     user = StringField("User")
     mac = StringField("MAC")
     ip = StringField("IP")
-
+    logs_only = BooleanField("Only show compliance logs")
     submit = SubmitField('Search logs')
