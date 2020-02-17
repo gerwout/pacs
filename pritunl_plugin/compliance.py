@@ -61,6 +61,7 @@ def user_connect(host_id, server_id, org_id, user_id, host_name,
     host_name = str(host.get('name', "")).upper()
     user_name = str(user.get('name', ""))
     user_has_pin = str(user.get('pin', False))
+    bypass_secondary = str(user.get('bypass_secondary', ""))
     user_is_disabled = str(user.get('disabled', False))
     user_email = str(user.get('email', ""))
     org_name = str(org.get('name', ""))
@@ -70,7 +71,7 @@ def user_connect(host_id, server_id, org_id, user_id, host_name,
                  "mac_addr": mac_addr, "platform": platform, "device_id": device_id, "device_name": device_name, "server_has_ip6": server_has_ip6,
                  "server_protocol": server_protocol, "server_port": server_port, "server_status": server_status, "host_ip6": host_ip6,
                  "host_ip4": host_ip4, "host_connect_ip": host_connect_ip, "user_has_pin": user_has_pin, "user_disabled": user_is_disabled,
-                 "user_email": user_email}
+                 "user_email": user_email, "user_bypass_secondary": bypass_secondary}
 
     token = generate_auth_token(json_dict)
     auth_token_dict = {"auth_token": token}
