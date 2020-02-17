@@ -1,4 +1,3 @@
-#@todo query 2fa status in logs?
 #@todo when signature fails, we need to show stuff
 from app import app, oidc, db, models, forms, csrf
 from flask import request, redirect, render_template, g, jsonify, abort
@@ -177,6 +176,8 @@ def logs():
         temp_log['user'] = log['user_name']
         if log['user_has_pin'] == "True":
             temp_log['user'] = temp_log['user'] + " (user has pin!)"
+        if log.get('user_bypass_secondary', '') != '':
+            temp_log['user'] = temp_log['user'] + " (user 2FA disabled: " + str(log.get('user_bypass_secondary', '')) + ")"
         temp_log['action'] = "Checking: " + str(log['mac_addr']) + " from " + str(log['remote_ip']) + " (" + str(log['platform']) + ")"
         temp_log['action'] = temp_log['action'] + " " + str(log['org_name']) + " - " + str(log['server_name']) + " (" + str(log['host_name']) + ") -> " + str(log['server_protocol']) + ":" + str(log['server_port'])
         temp_log['action'] = temp_log['action'] + " (log id:" + str(log['_id']) + ")"
