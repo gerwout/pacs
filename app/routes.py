@@ -1,16 +1,39 @@
 #@todo when signature fails, we need to show stuff
+import pytz
+from tzlocal import get_localzone
 from app import app, oidc, db, models, forms, csrf
 from flask import request, redirect, render_template, g, jsonify, abort
 import re, os, importlib
 from sqlalchemy import desc
 from app.utils.import_handler import import_handler
 from app.utils.mongo_handler import mongo_handler
-import platform, datetime
+from datetime import datetime
+import platform, datetime, pendulum
 system = platform.system()
 if system == 'Windows':
     import pythoncom
 from pathlib import Path
 from itsdangerous import (TimedJSONWebSignatureSerializer, BadSignature, SignatureExpired)
+
+# returns float with the time difference in hours between the 2 given time zones
+# you can give an optional date, because the current date does not necessarily reflect the current time differences
+# between time zones. (i.e. daylight saving)
+def __tz_diff(home, away, date=None):
+    if date == None:
+        date = pendulum.today()
+    year = date.year
+    month = date.month
+    day = date.day
+    hour = date.hour
+    minutes = date.minute
+    seconds = date.second
+
+    dt_home = pendulum.datetime(year, month, day, hour, minutes, seconds, tz=home)
+    dt_away = pendulum.datetime(year, month, day, hour, minutes, seconds, tz=away)
+    diff = dt_home.diff(dt_away, False).in_hours()
+
+    return diff
+
 
 def __verify_api_auth_token(token):
     s = TimedJSONWebSignatureSerializer(app.config['SECRET_API_KEY'])
@@ -136,6 +159,9 @@ def check_compliance():
 @app.route('/logs', methods=['GET', 'POST'])
 @oidc.require_login
 def logs():
+    config_tz = app.config.get('TARGET_TIME_ZONE', 'UTC')
+    conf_time_zone = pytz.timezone(config_tz)
+    utc_time_zone = pytz.timezone('UTC')
     mongo = mongo_handler()
     form = forms.LogSearchForm()
     all_users = mongo.get_unique_users()
@@ -145,7 +171,10 @@ def logs():
     # succesfull form post, get values
     if form.validate_on_submit():
         start = datetime.datetime.strptime(request.form['start_date_time'], "%Y-%m-%dT%H:%M:%S")
+        # we need to search in UTC
+        start = conf_time_zone.localize(start).astimezone(pytz.utc)
         end = datetime.datetime.strptime(request.form['end_date_time'], "%Y-%m-%dT%H:%M:%S")
+        end = conf_time_zone.localize(end).astimezone(pytz.utc)
         user = request.form['user']
         mac = request.form['mac']
         ip = request.form['ip']
@@ -156,6 +185,10 @@ def logs():
         else:
             audit_trail = mongo.get_audit_trail(start=start, end=end, user=user)
     else:
+        current_date = datetime.datetime.now()
+        form.start_date_time.data = datetime.datetime(current_date.year, current_date.month, current_date.day, 0, 0, 1)
+        form.end_date_time.data = datetime.datetime(current_date.year, current_date.month, current_date.day, 23, 59, 59)
+
         all_logs = mongo.get_all_logs()
         audit_trail = mongo.get_audit_trail()
     logs = []
@@ -163,6 +196,9 @@ def logs():
     for idx, audit in enumerate(audit_trail):
         temp_log = {}
         dt = datetime.datetime.utcfromtimestamp(audit['timestamp'])
+        # localize it!
+        dt = utc_time_zone.localize(dt).astimezone(conf_time_zone)
+
         temp_log['timestamp'] = audit['timestamp']
         temp_log['datetime'] = dt.strftime("%d-%m-%Y %H:%M:%S")
         temp_log['user'] = audit['user']
@@ -174,6 +210,8 @@ def logs():
     for idx, log in enumerate(all_logs):
         temp_log = {}
         dt = datetime.datetime.utcfromtimestamp(log['timestamp'])
+        dt = utc_time_zone.localize(dt).astimezone(conf_time_zone)
+
         temp_log['datetime'] = dt.strftime("%d-%m-%Y %H:%M:%S")
         temp_log['timestamp'] = log['timestamp']
         temp_log['user'] = log['user_name']

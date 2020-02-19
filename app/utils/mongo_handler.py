@@ -2,7 +2,7 @@ from app import app
 from pymongo import MongoClient, DESCENDING
 from datetime import datetime
 from bson.objectid import ObjectId
-import pprint
+import pprint, pytz
 
 class mongo_handler():
     client = None
@@ -51,6 +51,7 @@ class mongo_handler():
         self.db.audittrail.insert_one({"timestamp":timestamp, "user":user, "action":action, "result":result})
 
     def get_all_logs(self, start=None, end=None, user="", mac="", ip=""):
+        # config_tz = app.config.get('TARGET_TIME_ZONE', 'UTC')
         if start == None:
             start = datetime.timestamp(datetime(datetime.now().year, datetime.now().month, datetime.now().day, 0, 0, 1))
         else:
@@ -59,8 +60,8 @@ class mongo_handler():
             end = datetime.timestamp(datetime(datetime.now().year, datetime.now().month, datetime.now().day, 23, 59, 59))
         else:
             end = datetime.timestamp(end)
-
         search_dict = {"timestamp":{"$gte": start, "$lte": end}}
+
         if user != "":
             search_dict['user_name'] = user
         if mac != "":
@@ -81,6 +82,7 @@ class mongo_handler():
             end = datetime.timestamp(end)
 
         search_dict = {"timestamp":{"$gte": start, "$lte": end}}
+
         if user != "":
             search_dict['user'] = user
 

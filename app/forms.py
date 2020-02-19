@@ -16,8 +16,8 @@ class ComputerForm(ModelForm):
 
 class LogSearchForm(FlaskForm):
     current_date = datetime.now()
-    start_date_time = DateTimeLocalField('Start', format='%Y-%m-%dT%H:%M:%S', validators=[InputRequired()], default=datetime(current_date.year, current_date.month, current_date.day, 0, 0, 1))
-    end_date_time = DateTimeLocalField('End', format='%Y-%m-%dT%H:%M:%S', validators=[InputRequired()], default=datetime(current_date.year, current_date.month, current_date.day, 23, 59, 59))
+    start_date_time = DateTimeLocalField('Start', format='%Y-%m-%dT%H:%M:%S', validators=[InputRequired()])
+    end_date_time = DateTimeLocalField('End', format='%Y-%m-%dT%H:%M:%S', validators=[InputRequired()])
     user = StringField("User")
     mac = StringField("MAC")
     ip = StringField("IP")
