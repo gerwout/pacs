@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 class cylance():
 
     access_token = ""
-    def check_compliance(self, data):
+    def check_compliance(self, data, mongo):
         mac_address = data['mac_addr'].replace(":", "").replace("-", "").replace(".", "").upper()
 
         try:
@@ -23,14 +23,17 @@ class cylance():
 
         # when we manually set that we want to ignore the AV compliance check, we assume that the system is compliant
         if ignore_av_check:
+            mongo.add_to_audit_trail(data['user_name'], "Ignoring AV status, disabled for " + data['computer_name'], "log_id: " + str(data['log_id']))
             return True
 
         self.access_token = self.__authenticate_to_cylance()
         # Cylance api not available, assume compliant
         if self.access_token == "DOWN":
+            mongo.add_to_audit_trail(data['user_name'], "Cylance API down! Assuming compliant." + data['computer_name'], "log_id: " + str(data['log_id']))
             return True
         # we failed to get an access token, assume non compliant
         if not self.access_token:
+            mongo.add_to_audit_trail(data['user_name'], "No Cylance access token :-( Assume not compliant for " + data['computer_name'], "log_id: " + str(data['log_id']))
             return False
 
         # we do need to query all available mac addresses for that system.
@@ -41,8 +44,13 @@ class cylance():
         ret_value = False
         for m in all_mac_addresses:
             if self.__check_mac_address_registered(m.mac):
+                mongo.add_to_audit_trail(data['user_name'], "MAC address " + m.mac + " found in Cylance, computer " + data['computer_name'] + " is compliant",
+                                         "log_id: " + str(data['log_id']))
                 ret_value = True
                 break;
+            else:
+                mongo.add_to_audit_trail(data['user_name'], "MAC address " + m.mac + " not found or not compliant in Cylance, computer " + data[
+                                             'computer_name'], "log_id: " + str(data['log_id']))
 
         return ret_value
 
