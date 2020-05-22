@@ -9,7 +9,7 @@ flask-oidc==1.4.0
 Flask-Session==0.3.1
 Flask-SQLAlchemy==2.4.1
 future==0.16.0
-httplib2==0.14.0
+httplib2>=0.18.0
 idna==2.8
 infinity==1.4
 intervals==0.8.1
