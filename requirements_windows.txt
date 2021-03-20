@@ -15,7 +15,7 @@ idna==2.8
 infinity==1.4
 intervals==0.8.1
 itsdangerous==1.1.0
-Jinja2==2.10.3
+Jinja2==2.11.3
 Mako==1.1.0
 MarkupSafe==1.1.1
 mock==2.0.0
