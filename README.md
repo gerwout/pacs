@@ -304,7 +304,7 @@ This will add a cron job for the pacs user that runs every 4 hours.
 ## Install the Pritunl plugin
 Copy all the files from the pritunl_plugin directory to the Pritunl plugin directory (Usually located 
 at /var/lib/pritunl/plugins) on all your Pritunl servers. 
-- Install the requirements `pip install -r requirements.txt`
+- Install the requirements `/usr/lib/pritunl/bin/pip install -r requirements.txt`
 - Rename config.ini.example to config.ini and edit the configuration
 
 The API_SECRET_KEY configuration option needs to have the same value as the SECRET_API_KEY configuration 
