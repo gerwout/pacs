@@ -20,7 +20,7 @@ def get_configuration():
         exit(0)
 
     config = configparser.ConfigParser()
-    config.read_string(unicode(content, 'utf-8'))
+    config.read_string(content)
 
     return config
 
