@@ -2,7 +2,6 @@ import os
 import configparser
 import platform
 system = platform.system()
-# basedir = os.path.abspath(os.path.dirname(__file__))
 
 class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -27,10 +26,13 @@ class Config(object):
 
         config = configparser.ConfigParser()
         config.read_string(content)
+
         for section in config.sections():
             for option in config.options(section):
                 if option not in Config.TREAT_AS_BOOLEAN:
                     value = config.get(section, option)
+                    if value.isnumeric():
+                        value = int(value)
                 else:
                     value = config.getboolean(section, option)
                 setattr(cls, option.upper(), value)
