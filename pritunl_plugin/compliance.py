@@ -1,5 +1,6 @@
 import requests
-from itsdangerous import TimedJSONWebSignatureSerializer, BadSignature, SignatureExpired
+import jwt
+import time
 import configparser, os
 from pritunl import logger
 from pritunl.host.host import Host
@@ -25,21 +26,21 @@ def get_configuration():
     return config
 
 def generate_auth_token(json_dict, expiration=600):
-    s = TimedJSONWebSignatureSerializer(config.get("general", "API_SECRET_KEY"), expires_in=expiration)
+    cur_time_stamp = round(time.time())
+    exp_time_stamp = cur_time_stamp + expiration
+    json_dict["exp"] = exp_time_stamp
+    encoded = jwt.encode(json_dict, config.get("general", "API_SECRET_KEY"), algorithm="HS512")
 
-    return s.dumps(json_dict)
+    return encoded
 
 def verify_api_auth_token(token):
-    s = TimedJSONWebSignatureSerializer(config.get("general", "API_SECRET_KEY"))
     try:
-        data = s.loads(token)
-    except SignatureExpired:
+        data = jwt.decode(token, config.get("general", "API_SECRET_KEY"), algorithms=["HS512"])
+        return data
+    except jwt.ExpiredSignatureError:
         return False  # valid token, but expired
-    except BadSignature:
-        return False  # invalid token
-
-    return data
-
+    except:
+        return False
 
 # [SYNCHRONOUS] Called on user connect must return True or False to allow
 # connection and None if allowed or a string with reason if not allowed.
@@ -84,9 +85,9 @@ def user_connect(host_id, server_id, org_id, user_id, host_name,
             data = r.json()
             return_data = verify_api_auth_token(data['auth_token'])
             if not return_data:
-                return False, "Auth token is not valid or has expired"
+                return False, "Returned JWT Auth token is not valid or has expired"
             else:
-                return return_data['compliant'], None
+                return return_data['compliant'], "Device (" + mac_addr + ") is not registered or not compliant in PACS!"
     except:
         # when we encounter an error, we assume that we are compliant
         return True, None

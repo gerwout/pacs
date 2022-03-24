@@ -1,6 +1,5 @@
 #@todo when signature fails, we need to show stuff
 import pytz
-from tzlocal import get_localzone
 from app import app, oidc, db, models, forms, csrf
 from flask import request, redirect, render_template, g, jsonify, abort
 import re, os, importlib
@@ -13,7 +12,8 @@ system = platform.system()
 if system == 'Windows':
     import pythoncom
 from pathlib import Path
-from itsdangerous import (TimedJSONWebSignatureSerializer, BadSignature, SignatureExpired)
+import jwt
+import time
 
 # returns float with the time difference in hours between the 2 given time zones
 # you can give an optional date, because the current date does not necessarily reflect the current time differences
@@ -35,21 +35,25 @@ def __tz_diff(home, away, date=None):
     return diff
 
 
-def __verify_api_auth_token(token):
-    s = TimedJSONWebSignatureSerializer(app.config['SECRET_API_KEY'])
-    try:
-        data = s.loads(token)
-    except SignatureExpired:
-        return False  # valid token, but expired
-    except BadSignature:
-        return False  # invalid token
 
-    return data
+def __verify_api_auth_token(token):
+    try:
+        data = jwt.decode(token, app.config['SECRET_API_KEY'], algorithms=["HS512"])
+        return data
+    except jwt.ExpiredSignatureError:
+        return False  # valid token, but expired
+    except:
+        return False
+
+
 
 def __generate_api_auth_token(json_dict, expiration=600):
-    s = TimedJSONWebSignatureSerializer(app.config['SECRET_API_KEY'], expires_in=expiration)
+    cur_time_stamp = round(time.time())
+    exp_time_stamp = cur_time_stamp + expiration
+    json_dict["exp"] = exp_time_stamp
+    encoded = jwt.encode(json_dict, app.config['SECRET_API_KEY'], algorithm="HS512")
 
-    return s.dumps(json_dict).decode('utf-8')
+    return encoded
 
 @app.route("/check-compliance", methods=['POST'])
 @csrf.exempt
@@ -114,23 +118,23 @@ def check_compliance():
                         connection_data['computer_name'] = mac_addresses[0].computer.name
 
                         for engine in engines:
-                            mongo.add_to_audit_trail(connection_data['user_name'], "Going to checking app.antivirus." + engine, "log_id: " + str(log_id))
+                            if engine != "":
+                                mongo.add_to_audit_trail(connection_data['user_name'], "Going to checking app.antivirus." + engine, "log_id: " + str(log_id))
+                                anti_virus = importlib.import_module('app.antivirus.' + engine)
+                                instance = getattr(anti_virus, engine)()
 
-                            anti_virus = importlib.import_module('app.antivirus.' + engine)
-                            instance = getattr(anti_virus, engine)()
-
-                            # this method will check all mac addresses from the given system
-                            compliant = instance.check_compliance(connection_data, mongo)
-                            if not compliant:
-                                mongo.add_to_audit_trail(connection_data['user_name'],
-                                                         "Checking app.antivirus." + engine,
-                                                         "Not compliant or not in healthy state!, refuse connection, log_id: " + str(log_id))
-                                can_connect = False
-                                break
-                            else:
-                                mongo.add_to_audit_trail(connection_data['user_name'],
-                                                         "Checking app.antivirus." + engine,
-                                                         "Compliant and healthy, log_id: " + str(log_id))
+                                # this method will check all mac addresses from the given system
+                                compliant = instance.check_compliance(connection_data, mongo)
+                                if not compliant:
+                                    mongo.add_to_audit_trail(connection_data['user_name'],
+                                                             "Checking app.antivirus." + engine,
+                                                             "Not compliant or not in healthy state!, refuse connection, log_id: " + str(log_id))
+                                    can_connect = False
+                                    break
+                                else:
+                                    mongo.add_to_audit_trail(connection_data['user_name'],
+                                                             "Checking app.antivirus." + engine,
+                                                             "Compliant and healthy, log_id: " + str(log_id))
         else:
             mongo.add_to_audit_trail("unknown", "Compliance check disabled system wide", "Going to allow this connection")
             # even though we are not going to check the data that has been sent (i.e. compliance check is disabled system wide)
@@ -160,7 +164,6 @@ def check_compliance():
             mongo.add_to_audit_trail(user_name, "Connection allowed: " + str(can_connect), "logid: " + str(log_id))
         except NameError:
             pass
-
         return jsonify(json_to_return)
     # not a request with the application/json header, could be a suspicious form post
     else:
@@ -392,7 +395,6 @@ def delete_computer(computer_id):
 @app.before_request
 def check_if_authenticated():
     user_logged_in = oidc.user_loggedin
-
     if request.path != "/check-compliance" and not user_logged_in:
         return oidc.authenticate_or_redirect()
     elif user_logged_in:

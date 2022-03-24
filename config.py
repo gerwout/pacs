@@ -7,7 +7,7 @@ class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     OIDC_SCOPES = ["openid", "email", "profile"]
     TREAT_AS_BOOLEAN = ["oidc_cookie_secure", "ldap_require_valid_cert", "sccm_show_button"]
-    VERSION = "0.1d"
+    VERSION = "0.1e"
 
     @classmethod
     def read_config(cls):
