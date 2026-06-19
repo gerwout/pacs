@@ -47,7 +47,7 @@ SQLAlchemy-Utils==0.38.2
 tzlocal==2.0.0
 urllib3==1.26.9
 validators==0.18.2
-Werkzeug==2.0.3
+Werkzeug==2.2.3
 wmi-client-wrapper-py3==2018.3
 WTForms==3.0.1
 WTForms-Alchemy==0.18.0
