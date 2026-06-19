@@ -3,6 +3,6 @@ chardet==4.0.0
 charset-normalizer==2.0.6
 configparser==5.0.2
 idna==3.2
+requests==2.33.0
 PyJWT==2.13.0
-requests==2.26.0
 urllib3==1.26.7
