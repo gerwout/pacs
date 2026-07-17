@@ -40,7 +40,7 @@ pytz==2021.3
 pytzdata==2020.1
 requests==2.27.1
 rsa==4.8
-sh==1.12.14
+sh==2.2.4
 six==1.16.0
 SQLAlchemy==1.4.32
 SQLAlchemy-Utils==0.38.2
